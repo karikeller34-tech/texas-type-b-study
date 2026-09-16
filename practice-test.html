@@ -10,24 +10,20 @@
   <div class="top"><h1>TFM01 STUDY LAB</h1><div class="row"><button id="trapToggle">Trap words on</button><a href="jeopardy.html"><button>Jeopardy</button></a></div></div>
   <div id="app"><section class="panel"><h2>Loading the question bank…</h2></section></div>
 </main>
+<script src="question-bank.js"></script>
 <script>
 const app=document.getElementById('app'),trapToggle=document.getElementById('trapToggle');
-const CATS=["Money & Deadlines","License Types","Firm Rules","Tags & Notices","Systems & Service","Test & Law"];
+const CATS=window.TFM01_CATEGORIES;
 const TRAPS=/\b(may not|must not|shall not|is not|are not|may|must|shall|not|except|only|unless|before|after|within|who|when)\b/gi;
-let BANK=[],mode='',questions=[],at=0,answers={},confidence={},revealed={},trapHelp=true,studyCorrect=0,studyStreak=0;
+let BANK=window.TFM01_BANK||[],mode='',questions=[],at=0,answers={},confidence={},revealed={},trapHelp=true,studyCorrect=0,studyStreak=0;
 const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const marked=x=>{const safe=esc(x);return trapHelp?safe.replace(TRAPS,'<mark class="trap-word">$1</mark>'):safe};
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 trapToggle.onclick=()=>{trapHelp=!trapHelp;trapToggle.textContent='Trap words '+(trapHelp?'on':'off');if(mode)renderQuestion()};
 
-async function loadBank(){
-  try{
-    const html=await fetch('jeopardy.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Could not load Jeopardy bank');return r.text()});
-    const match=html.match(/const BANK=(\[[\s\S]*?\]);\nconst CATS=/);
-    if(!match)throw Error('Question bank was not found');
-    BANK=JSON.parse(match[1]);
-    home();
-  }catch(e){app.innerHTML='<section class="panel"><h2>Question bank could not load</h2><p class="error">'+esc(e.message)+'</p><p>Refresh this page. If it continues, open the Jeopardy game once and return here.</p></section>'}
+function loadBank(){
+  if(!BANK.length){app.innerHTML='<section class="panel"><h2>Question bank could not load</h2><p class="error">Refresh this page and try again.</p></section>';return}
+  home();
 }
 function home(){
   mode='';
@@ -40,7 +36,8 @@ function start(which){
   if(which==='study') questions=shuffle(BANK);
   else{
     let seen={};try{seen=JSON.parse(localStorage.getItem('tfm01Seen')||'{}')}catch{}
-    questions=shuffle(BANK).sort((a,b)=>(seen[a.id]||0)-(seen[b.id]||0)).slice(0,50);
+    const quotas=[9,9,12,9,7,4];
+    questions=shuffle(quotas.flatMap((count,cat)=>shuffle(BANK.filter(q=>q.cat===cat)).sort((a,b)=>(seen[a.id]||0)-(seen[b.id]||0)).slice(0,count)));
     for(const q of questions)seen[q.id]=(seen[q.id]||0)+1;
     localStorage.setItem('tfm01Seen',JSON.stringify(seen));
   }
