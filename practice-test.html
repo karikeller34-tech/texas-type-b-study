@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gabe's TFM01 Study & Test</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(at top,#23449f,#060b2d 72%);color:#fff;font:18px system-ui,-apple-system,sans-serif}main{max-width:980px;margin:auto;padding:18px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h1{margin:8px 0;color:#ffd169;font-size:clamp(27px,5vw,52px)}h2{font-size:clamp(23px,4vw,38px);line-height:1.25}p{color:#ccd6ff;line-height:1.55}.panel{background:#111b49;border:1px solid #4b63a5;border-radius:22px;padding:clamp(18px,4vw,34px);margin:18px 0;box-shadow:0 20px 50px #02051c88}button{border:1px solid #7088d1;border-radius:12px;background:#223c91;color:#fff;padding:13px 17px;min-height:50px;font:inherit;font-weight:800;cursor:pointer}button:hover{filter:brightness(1.18)}button:focus-visible{outline:3px solid #ffd169;outline-offset:2px}button:disabled{opacity:.58;cursor:default}.gold{background:#ffd169;color:#101634;border-color:#ffe4a4}.danger{background:#6f2740}.answers{display:grid;gap:12px;margin:22px 0}.answer{text-align:left;font-size:19px}.answer.selected{border:3px solid #ffd169;background:#2e4db0}.answer.correct{background:#14613e;border-color:#55cc91}.answer.wrong{background:#842c40;border-color:#e0788f}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}.grow{flex:1!important}.small{font-size:14px;color:#afbee8}.stat{background:#0a1239;border:1px solid #3f579b;border-radius:12px;padding:12px 15px}.stat strong{display:block;color:#ffd169;font-size:24px}.progress{height:12px;background:#070d2c;border-radius:99px;overflow:hidden;margin:14px 0}.progress span{display:block;height:100%;background:#ffd169}.confidence button{background:#17265e}.confidence button.on{background:#ffd169;color:#101634}.feedback{background:#080f31;border-radius:14px;padding:18px;margin-top:18px}.trap-word{background:#ffd169;color:#101634;border-radius:.2em;padding:0 .12em;font-weight:950}.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}.cat-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid #31447d}.review{padding:18px 0;border-top:1px solid #415793}.review h3{line-height:1.35}.pill{display:inline-block;border:1px solid #667fc6;border-radius:99px;padding:4px 9px;margin:3px;font-size:13px;color:#cbd6ff}.error{color:#ffb1bf}.hidden{display:none!important}@media(max-width:620px){main{padding:9px}.panel{border-radius:16px}.top h1{font-size:27px}.answer{font-size:17px}.row.nav button{flex:1}.results{grid-template-columns:1fr 1fr}}
+</style>
+<main>
+  <div class="top"><h1>TFM01 STUDY LAB</h1><div class="row"><button id="trapToggle">Trap words on</button><a href="jeopardy.html"><button>Jeopardy</button></a></div></div>
+  <div id="app"><section class="panel"><h2>Loading the question bank…</h2></section></div>
+</main>
+<script>
+const app=document.getElementById('app'),trapToggle=document.getElementById('trapToggle');
+const CATS=["Money & Deadlines","License Types","Firm Rules","Tags & Notices","Systems & Service","Test & Law"];
+const TRAPS=/\b(may not|must not|shall not|is not|are not|may|must|shall|not|except|only|unless|before|after|within|who|when)\b/gi;
+let BANK=[],mode='',questions=[],at=0,answers={},confidence={},revealed={},trapHelp=true,studyCorrect=0,studyStreak=0;
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const marked=x=>{const safe=esc(x);return trapHelp?safe.replace(TRAPS,'<mark class="trap-word">$1</mark>'):safe};
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+trapToggle.onclick=()=>{trapHelp=!trapHelp;trapToggle.textContent='Trap words '+(trapHelp?'on':'off');if(mode)renderQuestion()};
+
+async function loadBank(){
+  try{
+    const html=await fetch('jeopardy.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Could not load Jeopardy bank');return r.text()});
+    const match=html.match(/const BANK=(\[[\s\S]*?\]);\nconst CATS=/);
+    if(!match)throw Error('Question bank was not found');
+    BANK=JSON.parse(match[1]);
+    home();
+  }catch(e){app.innerHTML='<section class="panel"><h2>Question bank could not load</h2><p class="error">'+esc(e.message)+'</p><p>Refresh this page. If it continues, open the Jeopardy game once and return here.</p></section>'}
+}
+function home(){
+  mode='';
+  app.innerHTML=`<section class="panel"><div class="small">${BANK.length} VERIFIED GAME QUESTIONS</div><h2>Choose how Gabe wants to practice.</h2><p>Both modes use the exact same questions and explanations as the Jeopardy game.</p><div class="row"><button class="gold" id="study">STUDY ALL ${BANK.length}</button><button id="test">TAKE A 50-QUESTION TEST</button></div><div class="feedback"><b>Study Mode</b><p>Immediate right/wrong feedback, explanations, streaks, and shuffled questions.</p><b>Test Mode</b><p>No answers until submission. Tracks Sure, 50/50, and Guess answers and prioritizes questions seen least often.</p></div></section>`;
+  document.getElementById('study').onclick=()=>start('study');
+  document.getElementById('test').onclick=()=>start('test');
+}
+function start(which){
+  mode=which;at=0;answers={};confidence={};revealed={};studyCorrect=0;studyStreak=0;
+  if(which==='study') questions=shuffle(BANK);
+  else{
+    let seen={};try{seen=JSON.parse(localStorage.getItem('tfm01Seen')||'{}')}catch{}
+    questions=shuffle(BANK).sort((a,b)=>(seen[a.id]||0)-(seen[b.id]||0)).slice(0,50);
+    for(const q of questions)seen[q.id]=(seen[q.id]||0)+1;
+    localStorage.setItem('tfm01Seen',JSON.stringify(seen));
+  }
+  renderQuestion();
+}
+function header(q){
+  const answered=Object.keys(answers).length;
+  return `<div class="row"><div class="stat grow"><span class="small">${mode==='study'?'STUDY MODE':'50-QUESTION TEST'} · ${esc(CATS[q.cat])}</span><strong>Question ${at+1} of ${questions.length}</strong></div>${mode==='study'?`<div class="stat"><span class="small">SCORE</span><strong>${studyCorrect}/${at+(revealed[q.id]?1:0)}</strong></div><div class="stat"><span class="small">STREAK</span><strong>${studyStreak}</strong></div>`:`<div class="stat"><span class="small">ANSWERED</span><strong>${answered}/50</strong></div>`}</div><div class="progress"><span style="width:${((at+1)/questions.length)*100}%"></span></div>`;
+}
+function renderQuestion(){
+  const q=questions[at],choice=answers[q.id],done=!!revealed[q.id];
+  app.innerHTML=`${header(q)}<section class="panel"><div class="small">${esc(q.difficulty)} · ${esc(q.id)}</div><h2>${marked(q.question)}</h2>${mode==='test'?confidenceButtons(q):''}<div class="answers">${q.options.map(o=>`<button class="answer ${choice===o.key?'selected':''} ${done&&o.key===q.correct?'correct':''} ${done&&choice===o.key&&choice!==q.correct?'wrong':''}" data-answer="${o.key}" ${done?'disabled':''}>${o.key}. ${marked(o.text)}</button>`).join('')}</div><div id="feedback">${done?feedback(q,choice):''}</div><div class="row nav"><button id="home">Exit</button>${mode==='test'?`<button id="prev" ${at===0?'disabled':''}>← Previous</button><button id="next" ${at===questions.length-1?'disabled':''}>Next →</button><button class="gold" id="submit">Submit test</button>`:`<button class="gold" id="studyNext" ${!done?'disabled':''}>${at===questions.length-1?'See results':'Next question →'}</button>`}</div></section>`;
+  document.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>choose(q,b.dataset.answer));
+  if(mode==='test')document.querySelectorAll('[data-confidence]').forEach(b=>b.onclick=()=>{confidence[q.id]=b.dataset.confidence;renderQuestion()});
+  document.getElementById('home').onclick=()=>{if(confirm('Leave this session?'))home()};
+  if(mode==='test'){
+    document.getElementById('prev').onclick=()=>{at--;renderQuestion()};document.getElementById('next').onclick=()=>{at++;renderQuestion()};document.getElementById('submit').onclick=submit;
+  }else document.getElementById('studyNext').onclick=()=>{if(at===questions.length-1)showResults();else{at++;renderQuestion()}};
+}
+function confidenceButtons(q){const c=confidence[q.id]||'';return `<div><span class="small">BEFORE ANSWERING: HOW SURE ARE YOU?</span><div class="row confidence">${['Sure','50/50','Guess'].map(x=>`<button class="${c===x?'on':''}" data-confidence="${x}">${x}</button>`).join('')}</div></div>`}
+function choose(q,key){
+  if(mode==='test'){answers[q.id]=key;renderQuestion();return}
+  if(revealed[q.id])return;
+  answers[q.id]=key;revealed[q.id]=true;
+  if(key===q.correct){studyCorrect++;studyStreak++}else studyStreak=0;
+  renderQuestion();
+}
+function feedback(q,choice){const ok=choice===q.correct,answer=q.options.find(o=>o.key===q.correct);return `<div class="feedback"><h3>${ok?'Correct!':'Not this time.'} Answer: ${answer.key}. ${esc(answer.text)}</h3><p>${esc(q.explanation)}</p><div class="small">${esc(q.citation)}</div></div>`}
+function submit(){
+  const missing=questions.filter(q=>!answers[q.id]);
+  if(missing.length){at=questions.indexOf(missing[0]);alert(`${missing.length} questions are unanswered. The first one will open now.`);renderQuestion();return}
+  if(!confirm('Submit all 50 answers?'))return;
+  questions.forEach(q=>revealed[q.id]=true);showResults();
+}
+function showResults(){
+  const correct=questions.filter(q=>answers[q.id]===q.correct).length;
+  const certain=questions.filter(q=>answers[q.id]===q.correct&&confidence[q.id]==='Sure').length;
+  const guesses=questions.filter(q=>answers[q.id]===q.correct&&confidence[q.id]==='Guess').length;
+  const review=questions.filter(q=>answers[q.id]!==q.correct||(mode==='test'&&confidence[q.id]!=='Sure'));
+  const cats=CATS.map((name,i)=>{const qs=questions.filter(q=>q.cat===i),right=qs.filter(q=>answers[q.id]===q.correct).length;return {name,right,total:qs.length}}).filter(x=>x.total);
+  app.innerHTML=`<section class="panel"><div class="small">${mode==='study'?'STUDY COMPLETE':'TEST COMPLETE'}</div><h2>${correct}/${questions.length} correct · ${Math.round(correct/questions.length*100)}%</h2><div class="results"><div class="stat"><span class="small">CORRECT</span><strong>${correct}</strong></div>${mode==='test'?`<div class="stat"><span class="small">SURE + CORRECT</span><strong>${certain}</strong></div><div class="stat"><span class="small">CORRECT GUESSES</span><strong>${guesses}</strong></div>`:''}</div><h2>Category results</h2>${cats.map(c=>`<div class="cat-row"><span>${esc(c.name)}</span><b>${c.right}/${c.total} · ${Math.round(c.right/c.total*100)}%</b></div>`).join('')}<div class="row" style="margin-top:20px"><button class="gold" id="again">${mode==='study'?'Study again':'Take another test'}</button><button id="backHome">Main menu</button></div><details ${review.length?'open':''}><summary>Review missed or uncertain questions (${review.length})</summary>${review.map(reviewBlock).join('')||'<p>Nothing to review.</p>'}</details></section>`;
+  document.getElementById('again').onclick=()=>start(mode);document.getElementById('backHome').onclick=home;
+}
+function reviewBlock(q){const choice=answers[q.id],picked=q.options.find(o=>o.key===choice),right=q.options.find(o=>o.key===q.correct);return `<div class="review"><div><span class="pill">${esc(CATS[q.cat])}</span>${confidence[q.id]?`<span class="pill">${esc(confidence[q.id])}</span>`:''}</div><h3>${marked(q.question)}</h3><p>Your answer: <b>${picked?esc(picked.text):'Unanswered'}</b><br>Correct answer: <b>${esc(right.text)}</b></p><p>${esc(q.explanation)}</p><div class="small">${esc(q.citation)} · ${esc(q.id)}</div></div>`}
+loadBank();
+</script>
+</html>
