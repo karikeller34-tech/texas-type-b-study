@@ -15,7 +15,8 @@
 const app=document.getElementById('app'),trapToggle=document.getElementById('trapToggle');
 const CATS=window.TFM01_CATEGORIES;
 const TRAPS=/\b(may not|must not|shall not|is not|are not|may|must|shall|not|except|only|unless|before|after|within|who|when)\b/gi;
-let BANK=window.TFM01_BANK||[],mode='',questions=[],at=0,answers={},confidence={},revealed={},trapHelp=true,studyCorrect=0,studyStreak=0;
+const gameReady=q=>!q.supplemental&&!/_{3,}|correctly completes this|complete this (?:rule|statement)/i.test(q.question||"");
+let BANK=(window.TFM01_BANK||[]).filter(gameReady),mode='',questions=[],at=0,answers={},confidence={},revealed={},trapHelp=true,studyCorrect=0,studyStreak=0;
 const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const marked=x=>{const safe=esc(x);return trapHelp?safe.replace(TRAPS,'<mark class="trap-word">$1</mark>'):safe};
 const shuffle=a=>{a=[...a];for(let i=a.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
