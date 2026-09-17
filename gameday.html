@@ -29,7 +29,11 @@
  const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
  const trap=s=>esc(s).replace(/\b(must|may|shall|not|except|before|after|only|unless|within|all|each|required|prohibited)\b/gi,'<span class="trap">$1</span>');
  document.querySelectorAll(".play").forEach(b=>b.onclick=()=>{document.querySelectorAll(".play").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");chosen=b.dataset.cat});
- function pool(){let b=window.TFM01_BANK||[];if(chosen==="mixed") return b.filter(q=>[0,1,4,5].includes(q.cat)).filter(q=>!q.supplemental);return b.filter(q=>String(q.cat)===chosen&&!q.supplemental)}
+ function gameReady(q){
+   const text=String(q.question||"");
+   return !q.supplemental && !/_{3,}/.test(text) && !/correctly completes this/i.test(text) && !/complete this (?:rule|statement)/i.test(text);
+ }
+ function pool(){let b=(window.TFM01_BANK||[]).filter(gameReady);if(chosen==="mixed") return b.filter(q=>[0,1,4,5].includes(q.cat));return b.filter(q=>String(q.cat)===chosen)}
  function begin(){let p=pool();if(p.length<5){alert("That play call does not have enough questions yet.");return} drive=shuffle(p).slice(0,5);i=0;points=0;yards=20;show("game");render()}
  function render(){answered=false;const q=drive[i];$("source").textContent=(names[q.cat]||"TFM01")+" · "+q.citation;$("question").innerHTML=trap(q.question);$("answers").innerHTML="";$("feedback").className="feedback hidden";$("next").classList.add("hidden");$("down").textContent=`${Math.min(i+1,4)}${["st","nd","rd","th"][Math.min(i+1,4)-1]} & 10`;$("yards").textContent=yards;$("points").textContent=points;$("qnum").textContent=`${i+1} / 5`;$("ball").style.left=`calc(${Math.min(92,Math.max(2,yards))}% - 25px)`;
    shuffle(q.options).forEach(a=>{const b=document.createElement("button");b.className="answer";b.innerHTML=`<b>${a.key}.</b> ${esc(a.text)}`;b.onclick=()=>answer(a.key,b);$("answers").appendChild(b)});
